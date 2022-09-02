@@ -1,0 +1,2616 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "bc97d6da"
+   },
+   "source": [
+    "## CS 6120: Natural Language Processing - Prof. Ahmad Uzair\n",
+    "\n",
+    "### Assignment 1: Naive Bayes\n",
+    "### Total Points: 100 points\n",
+    "\n",
+    "You will be dealing with movie review data that includes both positive and negative reviews in this assignment. You will use Sentiment Analysis to assess if a given review is positive or negative using the provided dataset.\n",
+    "\n",
+    "Therefore, we will make use of Naive Bayes algorithm to perform sentiment analysis on the movie review dataset.\n",
+    "\n",
+    "## Importing the Libraries"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "id": "a03450ac"
+   },
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import math\n",
+    "import pandas as pd\n",
+    "import re\n",
+    "import nltk\n",
+    "from nltk.corpus import stopwords\n",
+    "from nltk.stem import PorterStemmer\n",
+    "from nltk.tokenize import word_tokenize\n",
+    "import warnings\n",
+    "import seaborn as sns\n",
+    "import matplotlib.pyplot as plt\n",
+    "warnings.filterwarnings(\"ignore\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "fc584cc2"
+   },
+   "source": [
+    "## Reading the data\n",
+    "\n",
+    "When reading the data, ensure that the '.csv' file is in the same location where your jupyter notebook is used. This way the files are organized and easy to read using the pandas library. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {
+    "id": "3c9ffbf5"
+   },
+   "outputs": [],
+   "source": [
+    "## Reading the data and removing columns that are not important. \n",
+    "df = pd.read_csv(\"movie_reviews.csv\", sep = ',', encoding = 'latin-1', usecols = lambda col: col not in [\"Unnamed: 2\", \"Unnamed: 3\", \"Unnamed: 4\"])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 206
+    },
+    "id": "f7fa8ac0",
+    "outputId": "69edaf28-1e2e-4ec7-9530-b30a2853ab9e"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>review</th>\n",
+       "      <th>sentiment</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>One of the other reviewers has mentioned that ...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>A wonderful little production. &lt;br /&gt;&lt;br /&gt;The...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>I thought this was a wonderful way to spend ti...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>Petter Mattei's \"Love in the Time of Money\" is...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>Probably my all-time favorite movie, a story o...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>...</th>\n",
+       "      <td>...</td>\n",
+       "      <td>...</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>24694</th>\n",
+       "      <td>I have seen this movie at the cinema many year...</td>\n",
+       "      <td>negative</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>24695</th>\n",
+       "      <td>This movie was a real torture fest to sit thro...</td>\n",
+       "      <td>negative</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>24696</th>\n",
+       "      <td>John Wayne &amp; Albert Dekker compete for oil rig...</td>\n",
+       "      <td>negative</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>24697</th>\n",
+       "      <td>Tarantino once remarked on a melodrama from th...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>24698</th>\n",
+       "      <td>Aah yes the workout show was a great. Not only...</td>\n",
+       "      <td>positive</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "<p>24699 rows × 2 columns</p>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "                                                  review sentiment\n",
+       "0      One of the other reviewers has mentioned that ...  positive\n",
+       "1      A wonderful little production. <br /><br />The...  positive\n",
+       "2      I thought this was a wonderful way to spend ti...  positive\n",
+       "3      Petter Mattei's \"Love in the Time of Money\" is...  positive\n",
+       "4      Probably my all-time favorite movie, a story o...  positive\n",
+       "...                                                  ...       ...\n",
+       "24694  I have seen this movie at the cinema many year...  negative\n",
+       "24695  This movie was a real torture fest to sit thro...  negative\n",
+       "24696  John Wayne & Albert Dekker compete for oil rig...  negative\n",
+       "24697  Tarantino once remarked on a melodrama from th...  positive\n",
+       "24698  Aah yes the workout show was a great. Not only...  positive\n",
+       "\n",
+       "[24699 rows x 2 columns]"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "1749da04"
+   },
+   "source": [
+    "## Count plot of the output categories: positive or negative\n",
+    "\n",
+    "Feel free to take a look at the output and whether the classes are balanced or imbalanced. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 515
+    },
+    "id": "c152e8a4",
+    "outputId": "a2ba0476-3238-4511-fcf0-780508493f48"
+   },
+   "outputs": [
+    {
+     "data": {
+      "image/png": "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\n",
+      "text/plain": [
+       "<Figure size 720x432 with 1 Axes>"
+      ]
+     },
+     "metadata": {
+      "needs_background": "light"
+     },
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "plt.figure(figsize = (10,6))# size is 10,6\n",
+    "sns.countplot(x=\"sentiment\", data=df)#use countplot to plot the amount of positive and the amount of negative\n",
+    "plt.title(\"Positive Vs. Negative reviews count\", fontsize = 15)\n",
+    "plt.show()\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "9b8549f2"
+   },
+   "source": [
+    "## Upsampling the minority class: (5 points)\n",
+    "\n",
+    "It is known that Naive bayes is not robust to class imbalance. It could be seen above that the data is little imbalanced. Therefore, class balancing can be done before giving it to the Naive Bayes model for prediction. \n",
+    "\n",
+    "Feel free to use 'resample' library from sklearn. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {
+    "id": "yHJTAqrW7XMN"
+   },
+   "outputs": [],
+   "source": [
+    "## hint: use resample from sklearn.utils\n",
+    "from sklearn.utils import resample\n",
+    "\n",
+    "df_majority = df[df.sentiment==\"positive\"]# get data about sentiment is positive, and the amount of positive is more than that of negative\n",
+    "df_minority = df[df.sentiment==\"negative\"]# get data about sentiment is negative, and the amount of positive is more than that of negative\n",
+    "\n",
+    "negative_upsample = resample(df_minority, replace = True, \n",
+    "                        n_samples = df_majority.shape[0],\n",
+    "                        random_state = 101)\n",
+    "\n",
+    "df_upsampled = pd.concat([df_majority, negative_upsample])  # concat two data frames i,e majority class data set and upsampled minority class data set\n",
+    "df_upsampled = df_upsampled.sample(frac = 1)# return all rows (in random order)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "metadata": {
+    "id": "6a9329bb"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(12474, 2)"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Just to ensure that upsampling was done successfully, take a look at the shape of the data in \n",
+    "## this cell. \n",
+    "\n",
+    "# print the shape of data set with the help of shape function having \"negative\" as class label\n",
+    "df_upsampled[df.sentiment==\"negative\"].shape#print the shape of data about negative"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "6f8bf6e7"
+   },
+   "source": [
+    "### Expected Output : \n",
+    "(12474, 2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "bdea8155",
+    "outputId": "c665c4b9-826e-4f4e-e30e-06e0935a0622"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(12474, 2)"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Ensure that the same number of data points are present for both 'positive' and 'negative' data\n",
+    "\n",
+    "# print the shape of data set with the help of shape function having \"positive\" as class label\n",
+    "df_upsampled[df.sentiment==\"positive\"].shape#print the shape of data about negative"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "626f01d5"
+   },
+   "source": [
+    "### Expected Output : \n",
+    "(12474, 2)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 8,
+   "metadata": {
+    "id": "NoW5z6SzAeP8"
+   },
+   "outputs": [],
+   "source": [
+    "## In this cell, we are going to be dividing the data into train and test points\n",
+    "## Ensure that you store the upsampled data in a variable called 'df_upsampled' \n",
+    "## so that the below operations are performed successfully\n",
+    "\n",
+    "\n",
+    "## Considering 10000 positive and 10000 negative data points\n",
+    "negative_data_points_train = df_upsampled[df.sentiment==\"negative\"].iloc[:10000]#when sentiment is negative, select first ten thousand rows\n",
+    "positive_data_points_train = df_upsampled[df.sentiment==\"positive\"].iloc[:10000]#when sentiment is positive, select first ten thousand rows\n",
+    "\n",
+    "## Considering the remaining data points for test\n",
+    "negative_data_points_test = df_upsampled[df.sentiment==\"negative\"].iloc[10000:]#when sentiment is negative, select the data after 10000\n",
+    "positive_data_points_test = df_upsampled[df.sentiment==\"positive\"].iloc[10000:]#when sentiment is positive, select the data after 10000\n",
+    "\n",
+    "## Concatenate the training positive and negative reviews\n",
+    "X_train = pd.concat([negative_data_points_train['review'], positive_data_points_train['review']])#concat the reviews of two data which are negative_data_points_train and positive_data_points_train \n",
+    "## Concatenating the training positive and negative outputs\n",
+    "y_train = pd.concat([negative_data_points_train['sentiment'], positive_data_points_train['sentiment']])#concat the sentiment of two data which are negative_data_points_train and positive_data_points_train\n",
+    "\n",
+    "## Concatenating the test positive and negative reviews\n",
+    "X_test = pd.concat([negative_data_points_test['review'], positive_data_points_test['review']])\n",
+    "## Concatenating the test positive and negative outputs\n",
+    "y_test = pd.concat([negative_data_points_test['sentiment'], positive_data_points_test['sentiment']])\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 9,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "6428047d",
+    "outputId": "10d10601-0ce0-4688-c4d3-75fa386583fd"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "negative    10000\n",
+       "positive    10000\n",
+       "Name: sentiment, dtype: int64"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Take a look at the total number of classes and their count using '.value_counts()' for y_train and y_test.\n",
+    "## Ensure that there are equal number of positive and negative reviews. \n",
+    "y_train.value_counts()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "7dfe6517"
+   },
+   "source": [
+    "### Expected Output:\n",
+    "negative    10000<br>\n",
+    "positive    10000<br>\n",
+    "Name: sentiment, dtype: int64"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 10,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "2beae1d6",
+    "outputId": "6896f930-6a1a-45db-b74c-d080c9aedd0c"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "negative    2474\n",
+       "positive    2474\n",
+       "Name: sentiment, dtype: int64"
+      ]
+     },
+     "execution_count": 10,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "y_test.value_counts()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "9163f897"
+   },
+   "source": [
+    "### Expected Output : \n",
+    "negative    2474<br>\n",
+    "positive    2474<br>\n",
+    "Name: sentiment, dtype: int64"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "6501699b"
+   },
+   "source": [
+    "## Q1. Pre-process the reviews: (10 points)\n",
+    "\n",
+    "We know that a review contains links, punctuation, stopwords and many other words that don't give a lot of meaning for the Naive Bayes model for prediction. \n",
+    "\n",
+    "In the cell below, one must implement text-preprocessing and remove links, punctuations and stopwords. It is also important to lowercase the letters so that 'Admire' and 'admire' are not treated as different words. \n",
+    "\n",
+    "In addition to this, perform stemming operation so that similar words are reduced. To know more about stemming, feel free to take a look at this link.\n",
+    "\n",
+    "https://nlp.stanford.edu/IR-book/html/htmledition/stemming-and-lemmatization-1.html"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "[nltk_data] Downloading package wordnet to\n",
+      "[nltk_data]     C:\\Users\\54364\\AppData\\Roaming\\nltk_data...\n",
+      "[nltk_data]   Package wordnet is already up-to-date!\n"
+     ]
+    }
+   ],
+   "source": [
+    "import nltk\n",
+    "nltk.download('wordnet')\n",
+    "from nltk.stem import PorterStemmer\n",
+    "from nltk.tokenize import word_tokenize\n",
+    "ps = nltk.PorterStemmer()#stemming"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def toLowerCase(text):\n",
+    "    return text.lower() #changes all upper case alphabet to lower case\n",
+    "import string\n",
+    "string.punctuation # checking punctuations\n",
+    "def removePunctuation(text):\n",
+    "    return \"\".join([char for char in text if char not in string.punctuation])#removePunctuation"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import re\n",
+    "def removeURLs(text):\n",
+    "    \n",
+    "    text = re.sub(r\"http\\S+\", \"\", text) # replaces URLs starting with http \n",
+    "    text = re.sub(r\"www.\\S+\", \"\", text) # replaces URLs starting with wwe\n",
+    "    return text"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {
+    "id": "CirLN9-ddQ1r"
+   },
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "[nltk_data] Downloading package stopwords to\n",
+      "[nltk_data]     C:\\Users\\54364\\AppData\\Roaming\\nltk_data...\n",
+      "[nltk_data]   Package stopwords is already up-to-date!\n"
+     ]
+    }
+   ],
+   "source": [
+    "# TASK CELL\n",
+    "from nltk.tokenize import sent_tokenize, word_tokenize# Use NLTK Pakecage to import sent_tokenize and word_tokenize\n",
+    "from nltk.corpus import stopwords# Use NLTK Pakecage to import stopwords\n",
+    "nltk.download('stopwords')\n",
+    "def clean_review(review):\n",
+    "    '''\n",
+    "    Input:\n",
+    "        review: a string containing a review.\n",
+    "    Output:\n",
+    "        review_cleaned: a processed review. \n",
+    "\n",
+    "    '''\n",
+    "    text1 = toLowerCase(review)#toLowerCase\n",
+    "    text2 = removeURLs(text1)#removeURLs\n",
+    "    text = removePunctuation(text2)#removePunctuation\n",
+    "    \n",
+    "    \n",
+    "    \n",
+    "    words = text.split()#split str \n",
+    "    r = []#store final result\n",
+    "    for w in words:\n",
+    "        if w not in stopwords.words(\"english\"):#select words which are not in stopword.word\n",
+    "            r.append(ps.stem(w))#stemming\n",
+    "    review_cleaned=' '.join(r)#combine str\n",
+    "    \n",
+    "\n",
+    "\n",
+    "    return review_cleaned"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "a7632fe5"
+   },
+   "source": [
+    "## Q2. Implement a find_occurrence function (5 points):\n",
+    "\n",
+    "In this function, we find the total occurrence of a word giving information such as label, word and frequency dictionary.\n",
+    "\n",
+    "Note that this function is used later in the code when we are going to be predicting the output using Naive Bayes. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 15,
+   "metadata": {
+    "id": "eb282b81"
+   },
+   "outputs": [],
+   "source": [
+    "# TASK CELL\n",
+    "def find_occurrence(frequency, word, label):\n",
+    "    '''\n",
+    "    Params:\n",
+    "        frequency: a dictionary with the frequency of each pair (or tuple)\n",
+    "        word: the word to look up\n",
+    "        label: the label corresponding to the word\n",
+    "    Return:\n",
+    "        n: the number of times the word with its corresponding label appears.\n",
+    "    '''\n",
+    "    if frequency[(word,label)] in frequency.keys():\n",
+    "        n = frequency[(word,label)]#frequency give n the frequency of special pair\n",
+    "    else:\n",
+    "        n = 0# if (word,label) is not in frequency.keys(), give n 0\n",
+    "  \n",
+    "    return n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "29a2249d"
+   },
+   "source": [
+    "### Converting output to numerical format:\n",
+    "\n",
+    "We have outputs as 'positive' or 'negative'. In the cell below, we convert it to a numerical format. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 16,
+   "metadata": {
+    "id": "bcdc2b2c"
+   },
+   "outputs": [],
+   "source": [
+    "## With the use of mapping function, we replace\n",
+    "## the label in the form of string to an integer. \n",
+    "\n",
+    "output_map = {'positive': 0, 'negative': 1}\n",
+    "y_train = y_train.map(output_map)\n",
+    "y_test = y_test.map(output_map)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 17,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "3dde0bbd",
+    "outputId": "223dfbc1-8efe-4183-b6d7-c9cb025cb285"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "1    10000\n",
+       "0    10000\n",
+       "Name: sentiment, dtype: int64"
+      ]
+     },
+     "execution_count": 17,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Ensuring that there are equal number of classes on the training data. \n",
+    "y_train.value_counts()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 18,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/",
+     "height": 178
+    },
+    "id": "f2959b85",
+    "outputId": "e514214b-cd57-43fc-875d-1821ddab63f8"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'Now don\\'t get me wrong, I love seeing half naked chicks wiggling around. It\\'s part of the fun of a Moroccan restaurant: ogling the belly dancers. But it doesn\\'t make much of a plot.<br /><br />My first major problem is the music. I have the feeling that when Ann Rice wrote \"The Vampire Lestat\", the Cure was more the style of the music he would have liked (though I could be wrong). I know relating to current \"goth\" music might have seemed like a good idea, but they did a horrific job incorporating it. Lestat was an actor with presumably a pretty good singing voice. That they chose Jonathan Davis to be his stage voice is heartbreaking.<br /><br />Second, and someone else said it, mashing two very intricate books into one crappy movie is a bad idea. \"Lestat\" could have been a movie in it\\'s own right, and a damn good one if done right. I honestly don\\'t think \"Queen of the Damned\" lends itself to a movie very well. Though I would love to see a movie that incorporates a creation story, there\\'s too much, how to word this, \"inaction\" in the book for it to be a very interesting movie. And the retelling they did soiled it pretty badly. Now mind you, it\\'s been a long time since I\\'ve read it, I always thought \"Lestat\", \"Tale of the Body Thief\" and \"Memnoch the Devil\" were much more action packed and would have made better movies.<br /><br />I know a lot of people (hey, myself included) who like a lot of cheesy vampire crap that thought this was absolutely the worst of the genre to be a major motion picture. I tend to agree with them there. Aaliyah had a nice body though.'"
+      ]
+     },
+     "execution_count": 18,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Choosing a random review and taking a look at it.\n",
+    "X_train.iloc[0]"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "ed5e43c9"
+   },
+   "source": [
+    "From the above cell output, it could be seen that there are a lot of words that don't add a lot of meaning to the text. \n",
+    "\n",
+    "Therefore, those words would be removed. It also reduces the computation time. \n",
+    "\n",
+    "Therefore, it is a good practice we are following."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 19,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "ad3937ea",
+    "outputId": "68985efe-32cd-4c11-ed5b-2e1e1b297e73"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "dont get wrong love see half nake chick wiggl around part fun moroccan restaur ogl belli dancer doesnt make much plotbr br first major problem music feel ann rice wrote vampir lestat cure style music would like though could wrong know relat current goth music might seem like good idea horrif job incorpor lestat actor presum pretti good sing voic chose jonathan davi stage voic heartbreakingbr br second someon els said mash two intric book one crappi movi bad idea lestat could movi right damn good one done right honestli dont think queen damn lend movi well though would love see movi incorpor creation stori there much word inact book interest movi retel soil pretti badli mind long time sinc ive read alway thought lestat tale bodi thief memnoch devil much action pack would made better moviesbr br know lot peopl hey includ like lot cheesi vampir crap thought absolut worst genr major motion pictur tend agre aaliyah nice bodi though\n"
+     ]
+    }
+   ],
+   "source": [
+    "custom_review = X_train.iloc[0]\n",
+    "\n",
+    "# print cleaned review\n",
+    "print(clean_review(custom_review))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "3e6cc440"
+   },
+   "source": [
+    "We now use this function to pre-process the review and remove words that don't add a lot of meaning in our model. "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "5a762960"
+   },
+   "source": [
+    "## Q3. Implementing review counter function: (5 points)\n",
+    "\n",
+    "It is now time to implement the count function for the reviews. \n",
+    "\n",
+    "In this function, we count the occurrence of words and get the probabilities \n",
+    "for the words based on the training data. \n",
+    "\n",
+    "In other words, we get the probability of occurrence of a word, given that the output is 'positive'.\n",
+    "\n",
+    "Similarly, we also compute the probability of occurence of a word, given that the output is 'negative'.\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 20,
+   "metadata": {
+    "id": "5de61f77"
+   },
+   "outputs": [],
+   "source": [
+    "# TASK CELL\n",
+    "def review_counter(output_occurrence, reviews, positive_or_negative):\n",
+    "    '''\n",
+    "    Params:\n",
+    "        output_occurrence: a dictionary that will be used to map each pair to its frequency\n",
+    "        reviews: a list of reviews\n",
+    "        positive_or_negative: a list corresponding to the sentiment of each review (either 0 or 1)\n",
+    "    Return:\n",
+    "        output: a dictionary mapping each pair to its frequency\n",
+    "    '''\n",
+    "    ## Steps :\n",
+    "    # define the key, which is the word and label tuple\n",
+    "    # if the key exists in the dictionary, increment the count\n",
+    "    # else, if the key is new, add it to the dictionary and set the count to 1\n",
+    "    \n",
+    "    for label, review in zip(positive_or_negative, reviews):\n",
+    "        split_review = clean_review(review).split()#clean review(delete stopwords)and split cleaned review\n",
+    "        for word in split_review:\n",
+    "            thisword = (word,label)# make temporary key\n",
+    "            if thisword in output_occurrence.keys():#if temporary key in output_occurrence\n",
+    "                output_occurrence[thisword] += 1# value add 1\n",
+    "            else:\n",
+    "                output_occurrence[thisword] = 1#if not, add this temporary key in output_occurrence, initial value is 1    \n",
+    "        # Your code here\n",
+    "   \n",
+    "    return output_occurrence\n",
+    "   \n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "18238223"
+   },
+   "source": [
+    "### Test your function with example reviews:\n",
+    "\n",
+    "Feel free to run the cell below and understand whether the above function that you have defined is producing the optimum results. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 21,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "07a4c58a",
+    "outputId": "dd9e148a-34a9-4cfe-9077-c5de33493d7a"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{('got', 1): 1,\n",
+       " ('bore', 1): 2,\n",
+       " ('throught', 1): 1,\n",
+       " ('moview', 1): 1,\n",
+       " ('movi', 0): 2,\n",
+       " ('fantast', 0): 1,\n",
+       " ('watch', 1): 1,\n",
+       " ('complet', 1): 1,\n",
+       " ('wast', 1): 1,\n",
+       " ('time', 1): 1,\n",
+       " ('money', 1): 1,\n",
+       " ('enjoy', 0): 1,\n",
+       " ('fullest', 0): 1}"
+      ]
+     },
+     "execution_count": 21,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Testing your function\n",
+    "\n",
+    "result = {}\n",
+    "reviews = ['got bored throught the moview', 'The movie was fantastic', 'Will not watch it again', 'Was bored, it was a complete waste of time and money', 'Enjoyed the movie to the fullest']\n",
+    "ys = [1, 0, 1, 1, 0]\n",
+    "review_counter(result,reviews, ys)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "927f89bb"
+   },
+   "source": [
+    "### Expected Output:\n",
+    " {('bored', 1): 2, <br>\n",
+    " ('complete', 1): 1, <br>\n",
+    " ('enjoyed', 0): 1, <br>\n",
+    " ('fantastic', 0): 1, <br>\n",
+    " ('fullest', 0): 1, <br>\n",
+    " ('got', 1): 1, <br>\n",
+    " ('money', 1): 1, <br>\n",
+    " ('movie', 0): 2, <br>\n",
+    " ('moview', 1): 1, <br>\n",
+    " ('throught', 1): 1, <br>\n",
+    " ('time', 1): 1, <br>\n",
+    " ('waste', 1): 1, <br>\n",
+    " ('watch', 1): 1}"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 22,
+   "metadata": {
+    "id": "9bc62e13"
+   },
+   "outputs": [],
+   "source": [
+    "# Build the freqs dictionary for later uses\n",
+    "\n",
+    "freqs = review_counter({}, X_train, y_train)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 23,
+   "metadata": {
+    "id": "0eddf420"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "{('dont', 1): 4184,\n",
+       " ('get', 1): 5994,\n",
+       " ('wrong', 1): 911,\n",
+       " ('love', 1): 2206,\n",
+       " ('see', 1): 5060,\n",
+       " ('half', 1): 954,\n",
+       " ('nake', 1): 231,\n",
+       " ('chick', 1): 205,\n",
+       " ('wiggl', 1): 6,\n",
+       " ('around', 1): 1458,\n",
+       " ('part', 1): 2002,\n",
+       " ('fun', 1): 810,\n",
+       " ('moroccan', 1): 3,\n",
+       " ('restaur', 1): 67,\n",
+       " ('ogl', 1): 6,\n",
+       " ('belli', 1): 32,\n",
+       " ('dancer', 1): 90,\n",
+       " ('doesnt', 1): 1997,\n",
+       " ('make', 1): 6195,\n",
+       " ('much', 1): 3879,\n",
+       " ('plotbr', 1): 63,\n",
+       " ('br', 1): 23759,\n",
+       " ('first', 1): 3264,\n",
+       " ('major', 1): 465,\n",
+       " ('problem', 1): 1056,\n",
+       " ('music', 1): 1179,\n",
+       " ('feel', 1): 1974,\n",
+       " ('ann', 1): 201,\n",
+       " ('rice', 1): 29,\n",
+       " ('wrote', 1): 294,\n",
+       " ('vampir', 1): 355,\n",
+       " ('lestat', 1): 18,\n",
+       " ('cure', 1): 62,\n",
+       " ('style', 1): 521,\n",
+       " ('would', 1): 5727,\n",
+       " ('like', 1): 9568,\n",
+       " ('though', 1): 1629,\n",
+       " ('could', 1): 3625,\n",
+       " ('know', 1): 3131,\n",
+       " ('relat', 1): 235,\n",
+       " ('current', 1): 115,\n",
+       " ('goth', 1): 23,\n",
+       " ('might', 1): 1287,\n",
+       " ('seem', 1): 3298,\n",
+       " ('good', 1): 5821,\n",
+       " ('idea', 1): 1338,\n",
+       " ('horrif', 1): 67,\n",
+       " ('job', 1): 633,\n",
+       " ('incorpor', 1): 22,\n",
+       " ('actor', 1): 2760,\n",
+       " ('presum', 1): 96,\n",
+       " ('pretti', 1): 1682,\n",
+       " ('sing', 1): 290,\n",
+       " ('voic', 1): 452,\n",
+       " ('chose', 1): 83,\n",
+       " ('jonathan', 1): 41,\n",
+       " ('davi', 1): 73,\n",
+       " ('stage', 1): 297,\n",
+       " ('heartbreakingbr', 1): 2,\n",
+       " ('second', 1): 898,\n",
+       " ('someon', 1): 1228,\n",
+       " ('els', 1): 954,\n",
+       " ('said', 1): 993,\n",
+       " ('mash', 1): 45,\n",
+       " ('two', 1): 2509,\n",
+       " ('intric', 1): 23,\n",
+       " ('book', 1): 1220,\n",
+       " ('one', 1): 10416,\n",
+       " ('crappi', 1): 176,\n",
+       " ('movi', 1): 22458,\n",
+       " ('bad', 1): 5824,\n",
+       " ('right', 1): 1305,\n",
+       " ('damn', 1): 203,\n",
+       " ('done', 1): 1165,\n",
+       " ('honestli', 1): 265,\n",
+       " ('think', 1): 3513,\n",
+       " ('queen', 1): 149,\n",
+       " ('lend', 1): 17,\n",
+       " ('well', 1): 3096,\n",
+       " ('creation', 1): 67,\n",
+       " ('stori', 1): 4217,\n",
+       " ('there', 1): 1378,\n",
+       " ('word', 1): 727,\n",
+       " ('inact', 1): 9,\n",
+       " ('interest', 1): 1942,\n",
+       " ('retel', 1): 20,\n",
+       " ('soil', 1): 9,\n",
+       " ('badli', 1): 393,\n",
+       " ('mind', 1): 838,\n",
+       " ('long', 1): 1287,\n",
+       " ('time', 1): 5788,\n",
+       " ('sinc', 1): 1086,\n",
+       " ('ive', 1): 1334,\n",
+       " ('read', 1): 1237,\n",
+       " ('alway', 1): 939,\n",
+       " ('thought', 1): 1455,\n",
+       " ('tale', 1): 253,\n",
+       " ('bodi', 1): 589,\n",
+       " ('thief', 1): 45,\n",
+       " ('memnoch', 1): 2,\n",
+       " ('devil', 1): 170,\n",
+       " ('action', 1): 1279,\n",
+       " ('pack', 1): 109,\n",
+       " ('made', 1): 3288,\n",
+       " ('better', 1): 2580,\n",
+       " ('moviesbr', 1): 68,\n",
+       " ('lot', 1): 1857,\n",
+       " ('peopl', 1): 3742,\n",
+       " ('hey', 1): 185,\n",
+       " ('includ', 1): 739,\n",
+       " ('cheesi', 1): 339,\n",
+       " ('crap', 1): 618,\n",
+       " ('absolut', 1): 856,\n",
+       " ('worst', 1): 1850,\n",
+       " ('genr', 1): 393,\n",
+       " ('motion', 1): 162,\n",
+       " ('pictur', 1): 646,\n",
+       " ('tend', 1): 96,\n",
+       " ('agre', 1): 301,\n",
+       " ('aaliyah', 1): 9,\n",
+       " ('nice', 1): 779,\n",
+       " ('everyth', 1): 979,\n",
+       " ('awfulbr', 1): 45,\n",
+       " ('tell', 1): 1153,\n",
+       " ('five', 1): 403,\n",
+       " ('minut', 1): 1991,\n",
+       " ('go', 1): 3870,\n",
+       " ('terribl', 1): 1327,\n",
+       " ('cant', 1): 1837,\n",
+       " ('howev', 1): 1364,\n",
+       " ('gaug', 1): 7,\n",
+       " ('bebr', 1): 45,\n",
+       " ('start', 1): 1781,\n",
+       " ('seemingli', 1): 147,\n",
+       " ('endless', 1): 142,\n",
+       " ('intro', 1): 22,\n",
+       " ('scene', 1): 4542,\n",
+       " ('aid', 1): 86,\n",
+       " ('gay', 1): 345,\n",
+       " ('dialogu', 1): 860,\n",
+       " ('camera', 1): 904,\n",
+       " ('move', 1): 781,\n",
+       " ('big', 1): 1279,\n",
+       " ('guy', 1): 2166,\n",
+       " ('tri', 1): 3035,\n",
+       " ('hard', 1): 1019,\n",
+       " ('look', 1): 4514,\n",
+       " ('mental', 1): 187,\n",
+       " ('provok', 1): 58,\n",
+       " ('slightest', 1): 52,\n",
+       " ('emotionbr', 1): 3,\n",
+       " ('separ', 1): 109,\n",
+       " ('consist', 1): 274,\n",
+       " ('wog', 1): 17,\n",
+       " ('compet', 1): 104,\n",
+       " ('paid', 1): 189,\n",
+       " ('midnight', 1): 36,\n",
+       " ('fight', 1): 800,\n",
+       " ('ethnic', 1): 29,\n",
+       " ('group', 1): 496,\n",
+       " ('win', 1): 280,\n",
+       " ('cours', 1): 872,\n",
+       " ('appar', 1): 603,\n",
+       " ('lift', 1): 98,\n",
+       " ('weight', 1): 61,\n",
+       " ('respect', 1): 326,\n",
+       " ('degre', 1): 107,\n",
+       " ('act', 1): 4103,\n",
+       " ('edit', 1): 576,\n",
+       " ('script', 1): 1796,\n",
+       " ('hatr', 1): 36,\n",
+       " ('fund', 1): 97,\n",
+       " ('filmbr', 1): 366,\n",
+       " ('eventu', 1): 244,\n",
+       " ('main', 1): 1037,\n",
+       " ('charact', 1): 5590,\n",
+       " ('mate', 1): 86,\n",
+       " ('sent', 1): 109,\n",
+       " ('prison', 1): 202,\n",
+       " ('entir', 1): 854,\n",
+       " ('unrel', 1): 39,\n",
+       " ('assum', 1): 214,\n",
+       " ('plot', 1): 3337,\n",
+       " ('bunch', 1): 466,\n",
+       " ('fightsbr', 1): 4,\n",
+       " ('prison3', 1): 2,\n",
+       " ('year', 1): 2076,\n",
+       " ('murder', 1): 702,\n",
+       " ('reunit', 1): 35,\n",
+       " ('side', 1): 503,\n",
+       " ('town', 1): 504,\n",
+       " ('lay', 1): 81,\n",
+       " ('low', 1): 772,\n",
+       " ('everyon', 1): 815,\n",
+       " ('want', 1): 2844,\n",
+       " ('kill', 1): 1851,\n",
+       " ('thembr', 1): 132,\n",
+       " ('soon', 1): 378,\n",
+       " ('set', 1): 1418,\n",
+       " ('rape', 1): 250,\n",
+       " ('anoth', 1): 1654,\n",
+       " ('gang', 1): 202,\n",
+       " ('member', 1): 310,\n",
+       " ('girl', 1): 1576,\n",
+       " ('run', 1): 1201,\n",
+       " ('hord', 1): 19,\n",
+       " ('differ', 1): 882,\n",
+       " ('point', 1): 1735,\n",
+       " ('compar', 1): 383,\n",
+       " ('arcad', 1): 9,\n",
+       " ('game', 1): 588,\n",
+       " ('simpli', 1): 855,\n",
+       " ('enemi', 1): 138,\n",
+       " ('wors', 1): 959,\n",
+       " ('goe', 1): 995,\n",
+       " ('onbr', 1): 68,\n",
+       " ('anyway', 1): 510,\n",
+       " ('end', 1): 3576,\n",
+       " ('massiv', 1): 126,\n",
+       " ('climat', 1): 13,\n",
+       " ('remain', 1): 291,\n",
+       " ('take', 1): 2521,\n",
+       " ('everi', 1): 1569,\n",
+       " ('theyv', 1): 136,\n",
+       " ('fought', 1): 26,\n",
+       " ('far', 1): 1172,\n",
+       " ('unit', 1): 105,\n",
+       " ('wogsth', 1): 2,\n",
+       " ('skinhead', 1): 3,\n",
+       " ('asian', 1): 165,\n",
+       " ('million', 1): 267,\n",
+       " ('beaten', 1): 39,\n",
+       " ('invinc', 1): 12,\n",
+       " ('brother', 1): 491,\n",
+       " ('head', 1): 844,\n",
+       " ('home', 1): 581,\n",
+       " ('burn', 1): 217,\n",
+       " ('death', 1): 763,\n",
+       " ('thousand', 1): 143,\n",
+       " ('angri', 1): 156,\n",
+       " ('film', 1): 17021,\n",
+       " ('critic', 1): 310,\n",
+       " ('storm', 1): 85,\n",
+       " ('leav', 1): 857,\n",
+       " ('letter', 1): 115,\n",
+       " ('everywherebr', 1): 7,\n",
+       " ('may', 1): 1148,\n",
+       " ('comput', 1): 261,\n",
+       " ('explain', 1): 522,\n",
+       " ('punch', 1): 103,\n",
+       " ('face', 1): 796,\n",
+       " ('twice', 1): 125,\n",
+       " ('sizebr', 1): 2,\n",
+       " ('also', 1): 2931,\n",
+       " ('tonn', 1): 9,\n",
+       " ('stupid', 1): 1278,\n",
+       " ('unexplain', 1): 48,\n",
+       " ('event', 1): 398,\n",
+       " ('katana', 1): 15,\n",
+       " ('let', 1): 1277,\n",
+       " ('awaybr', 1): 20,\n",
+       " ('mention', 1): 685,\n",
+       " ('isnt', 1): 1481,\n",
+       " ('funni', 1): 1699,\n",
+       " ('frank', 1): 127,\n",
+       " ('popular', 1): 195,\n",
+       " ('show', 1): 3193,\n",
+       " ('sadden', 1): 17,\n",
+       " ('inuyasha', 1): 9,\n",
+       " ('certainli', 1): 496,\n",
+       " ('moment', 1): 951,\n",
+       " ('occasion', 1): 171,\n",
+       " ('flash', 1): 121,\n",
+       " ('clever', 1): 190,\n",
+       " ('humour', 1): 150,\n",
+       " ('unlik', 1): 310,\n",
+       " ('mani', 1): 2311,\n",
+       " ('anim', 1): 656,\n",
+       " ('digniti', 1): 31,\n",
+       " ('utterli', 1): 225,\n",
+       " ('lack', 1): 980,\n",
+       " ('essenti', 1): 142,\n",
+       " ('element', 1): 395,\n",
+       " ('worthwhil', 1): 83,\n",
+       " ('premis', 1): 323,\n",
+       " ('doom', 1): 88,\n",
+       " ('stereotyp', 1): 328,\n",
+       " ('center', 1): 117,\n",
+       " ('collect', 1): 161,\n",
+       " ('piec', 1): 883,\n",
+       " ('shatter', 1): 17,\n",
+       " ('jewel', 1): 29,\n",
+       " ('possess', 1): 153,\n",
+       " ('evil', 1): 637,\n",
+       " ('suspect', 1): 218,\n",
+       " ('total', 1): 982,\n",
+       " ('gener', 1): 873,\n",
+       " ('epic', 1): 119,\n",
+       " ('fantasi', 1): 153,\n",
+       " ('affair', 1): 186,\n",
+       " ('follow', 1): 764,\n",
+       " ('familiar', 1): 147,\n",
+       " ('pattern', 1): 26,\n",
+       " ('variou', 1): 240,\n",
+       " ('thu', 1): 129,\n",
+       " ('quit', 1): 1338,\n",
+       " ('predict', 1): 594,\n",
+       " ('complex', 1): 120,\n",
+       " ('easi', 1): 210,\n",
+       " ('lose', 1): 275,\n",
+       " ('shown', 1): 344,\n",
+       " ('poor', 1): 1133,\n",
+       " ('rescu', 1): 129,\n",
+       " ('deep', 1): 191,\n",
+       " ('realist', 1): 183,\n",
+       " ('sadli', 1): 278,\n",
+       " ('kagom', 1): 2,\n",
+       " ('heroin', 1): 142,\n",
+       " ('reminisc', 1): 53,\n",
+       " ('akan', 1): 1,\n",
+       " ('origin', 1): 1738,\n",
+       " ('comic', 1): 364,\n",
+       " ('author', 1): 198,\n",
+       " ('previou', 1): 201,\n",
+       " ('work', 1): 2472,\n",
+       " ('ranma', 1): 1,\n",
+       " ('12', 1): 215,\n",
+       " ('kind', 1): 1358,\n",
+       " ('femal', 1): 498,\n",
+       " ('treat', 1): 221,\n",
+       " ('male', 1): 345,\n",
+       " ('especi', 1): 748,\n",
+       " ('unfair', 1): 37,\n",
+       " ('unabash', 1): 6,\n",
+       " ('unjustifi', 1): 3,\n",
+       " ('brutal', 1): 155,\n",
+       " ('toughontheoutsidebutsweetontheinsid', 1): 1,\n",
+       " ('type', 1): 534,\n",
+       " ('miroku', 1): 2,\n",
+       " ('lament', 1): 14,\n",
+       " ('stock', 1): 180,\n",
+       " ('pervertbr', 1): 2,\n",
+       " ('flaw', 1): 203,\n",
+       " ('continu', 1): 465,\n",
+       " ('happen', 1): 1542,\n",
+       " ('name', 1): 1191,\n",
+       " ('noth', 1): 2322,\n",
+       " ('despit', 1): 512,\n",
+       " ('constant', 1): 125,\n",
+       " ('progress', 1): 107,\n",
+       " ('regular', 1): 96,\n",
+       " ('romant', 1): 216,\n",
+       " ('neither', 1): 278,\n",
+       " ('relationship', 1): 304,\n",
+       " ('ampl', 1): 19,\n",
+       " ('never', 1): 2735,\n",
+       " ('realli', 1): 4926,\n",
+       " ('chang', 1): 696,\n",
+       " ('add', 1): 406,\n",
+       " ('cherri', 1): 11,\n",
+       " ('sunda', 1): 1,\n",
+       " ('mediocr', 1): 267,\n",
+       " ('stagnat', 1): 2,\n",
+       " ('stretch', 1): 138,\n",
+       " ('approxim', 1): 22,\n",
+       " ('150', 1): 19,\n",
+       " ('episodesbr', 1): 5,\n",
+       " ('final', 1): 1150,\n",
+       " ('ugli', 1): 229,\n",
+       " ('display', 1): 166,\n",
+       " ('almost', 1): 1260,\n",
+       " ('disrespect', 1): 29,\n",
+       " ('lazi', 1): 94,\n",
+       " ('creator', 1): 94,\n",
+       " ('joy', 1): 66,\n",
+       " ('jump', 1): 246,\n",
+       " ('air', 1): 270,\n",
+       " ('wind', 1): 172,\n",
+       " ('whistl', 1): 17,\n",
+       " ('littl', 1): 2320,\n",
+       " ('backgroundbr', 1): 4,\n",
+       " ('short', 1): 753,\n",
+       " ('beauti', 1): 716,\n",
+       " ('world', 1): 1050,\n",
+       " ('keyboardperch', 1): 1,\n",
+       " ('fingertip', 1): 1,\n",
+       " ('reason', 1): 1569,\n",
+       " ('watch', 1): 5815,\n",
+       " ('ever', 1): 2456,\n",
+       " ('consid', 1): 586,\n",
+       " ('sorri', 1): 502,\n",
+       " ('excus', 1): 314,\n",
+       " ('way', 1): 3246,\n",
+       " ('shot', 1): 1277,\n",
+       " ('lit', 1): 42,\n",
+       " ('etc', 1): 456,\n",
+       " ('sens', 1): 956,\n",
+       " ('difficult', 1): 244,\n",
+       " ('load', 1): 132,\n",
+       " ('clip', 1): 95,\n",
+       " ('repeat', 1): 161,\n",
+       " ('beyond', 1): 454,\n",
+       " ('boredom', 1): 63,\n",
+       " ('normal', 1): 265,\n",
+       " ('person', 1): 1227,\n",
+       " ('exist', 1): 323,\n",
+       " ('outsid', 1): 233,\n",
+       " ('bald', 1): 33,\n",
+       " ('becom', 1): 1048,\n",
+       " ('sudden', 1): 99,\n",
+       " ('zero', 1): 201,\n",
+       " ('got', 1): 1526,\n",
+       " ('buy', 1): 395,\n",
+       " ('deal', 1): 475,\n",
+       " ('tromacom', 1): 3,\n",
+       " ('ruin', 1): 303,\n",
+       " ('star', 1): 1485,\n",
+       " ('worm', 1): 20,\n",
+       " ('ii', 1): 114,\n",
+       " ('attack', 1): 403,\n",
+       " ('pleasur', 1): 99,\n",
+       " ('pod', 1): 15,\n",
+       " ('dvd', 1): 759,\n",
+       " ('doubl', 1): 137,\n",
+       " ('featur', 1): 732,\n",
+       " ('didnt', 1): 2087,\n",
+       " ('actium', 1): 3,\n",
+       " ('maximu', 1): 4,\n",
+       " ('saw', 1): 1113,\n",
+       " ('trailer', 1): 190,\n",
+       " ('scare', 1): 336,\n",
+       " ('aw', 1): 1216,\n",
+       " ('sen', 1): 23,\n",
+       " ('special', 1): 963,\n",
+       " ('effect', 1): 1566,\n",
+       " ('cannot', 1): 472,\n",
+       " ('god', 1): 629,\n",
+       " ('understand', 1): 847,\n",
+       " ('mark', 1): 289,\n",
+       " ('hick', 1): 33,\n",
+       " ('extrem', 1): 664,\n",
+       " ('budget', 1): 848,\n",
+       " ('come', 1): 2522,\n",
+       " ('sad', 1): 406,\n",
+       " ('interview', 1): 143,\n",
+       " ('sound', 1): 1075,\n",
+       " ('meant', 1): 236,\n",
+       " ('bore', 1): 1503,\n",
+       " ('hour', 1): 966,\n",
+       " ('15', 1): 240,\n",
+       " ('anyon', 1): 1116,\n",
+       " ('life', 1): 1719,\n",
+       " ('pain', 1): 533,\n",
+       " ('sit', 1): 631,\n",
+       " ('even', 1): 6203,\n",
+       " ('seen', 1): 2585,\n",
+       " ('use', 1): 2020,\n",
+       " ('puppet', 1): 71,\n",
+       " ('alien', 1): 461,\n",
+       " ('dinosaur', 1): 102,\n",
+       " ('war', 1): 581,\n",
+       " ('stress', 1): 73,\n",
+       " ('enough', 1): 1554,\n",
+       " ('okay', 1): 377,\n",
+       " ('need', 1): 1408,\n",
+       " ('place', 1): 1094,\n",
+       " ('futurist', 1): 20,\n",
+       " ('planet', 1): 183,\n",
+       " ('battl', 1): 244,\n",
+       " ('hood', 1): 86,\n",
+       " ('sweatshirt', 1): 4,\n",
+       " ('kkk', 1): 5,\n",
+       " ('box', 1): 302,\n",
+       " ('blue', 1): 161,\n",
+       " ('light', 1): 573,\n",
+       " ('presid', 1): 95,\n",
+       " ('someth', 1): 2239,\n",
+       " ('televis', 1): 319,\n",
+       " ('pilot', 1): 117,\n",
+       " ('cb', 1): 20,\n",
+       " ('nbc', 1): 40,\n",
+       " ('thing', 1): 3650,\n",
+       " ('1', 1): 642,\n",
+       " ('actual', 1): 2294,\n",
+       " ('score', 1): 363,\n",
+       " ('stick', 1): 312,\n",
+       " ('day', 1): 1278,\n",
+       " ('2', 1): 1113,\n",
+       " ('lloyd', 1): 52,\n",
+       " ('kaufman', 1): 35,\n",
+       " ('introduct', 1): 77,\n",
+       " ('hilari', 1): 327,\n",
+       " ('overal', 1): 525,\n",
+       " ('wast', 1): 1520,\n",
+       " ('check', 1): 359,\n",
+       " ('lowbudget', 1): 165,\n",
+       " ('shittier', 1): 2,\n",
+       " ('version', 1): 741,\n",
+       " ('univers', 1): 219,\n",
+       " ('soldier', 1): 237,\n",
+       " ('franchis', 1): 89,\n",
+       " ('hope', 1): 961,\n",
+       " ('pray', 1): 50,\n",
+       " ('van', 1): 236,\n",
+       " ('damm', 1): 80,\n",
+       " ('repris', 1): 28,\n",
+       " ('role', 1): 1265,\n",
+       " ('luc', 1): 14,\n",
+       " ('devoreaux', 1): 2,\n",
+       " ('unisol', 1): 35,\n",
+       " ('prayer', 1): 16,\n",
+       " ('answer', 1): 225,\n",
+       " ('universi', 1): 2,\n",
+       " ('intens', 1): 133,\n",
+       " ('poetri', 1): 23,\n",
+       " ('local', 1): 427,\n",
+       " ('librari', 1): 46,\n",
+       " ('intrigu', 1): 161,\n",
+       " ('sequenc', 1): 665,\n",
+       " ('topnotch', 1): 9,\n",
+       " ('bruce', 1): 132,\n",
+       " ('lee', 1): 315,\n",
+       " ('qualiti', 1): 580,\n",
+       " ('redeem', 1): 303,\n",
+       " ('factor', 1): 119,\n",
+       " ('pathet', 1): 336,\n",
+       " ('former', 1): 165,\n",
+       " ('wcw', 1): 3,\n",
+       " ('toughguy', 1): 9,\n",
+       " ('legend', 1): 121,\n",
+       " ('goldberg', 1): 32,\n",
+       " ('play', 1): 2783,\n",
+       " ('villain', 1): 376,\n",
+       " ('seth', 1): 11,\n",
+       " ('sidekick', 1): 58,\n",
+       " ('lieuten', 1): 20,\n",
+       " ('wouldv', 1): 89,\n",
+       " ('betterbr', 1): 53,\n",
+       " ('offend', 1): 82,\n",
+       " ('school', 1): 647,\n",
+       " ('student', 1): 324,\n",
+       " ('slap', 1): 134,\n",
+       " ('togeth', 1): 771,\n",
+       " ('hole', 1): 277,\n",
+       " ('bigger', 1): 125,\n",
+       " ('kany', 1): 3,\n",
+       " ('west', 1): 155,\n",
+       " ('ego', 1): 59,\n",
+       " ('exampl', 1): 673,\n",
+       " ('daughter', 1): 466,\n",
+       " ('hillari', 1): 13,\n",
+       " ('she', 1): 545,\n",
+       " ('least', 1): 1546,\n",
+       " ('1113', 1): 2,\n",
+       " ('old', 1): 1493,\n",
+       " ('seven', 1): 121,\n",
+       " ('ago', 1): 397,\n",
+       " ('possibl', 1): 849,\n",
+       " ('partner', 1): 112,\n",
+       " ('turn', 1): 1530,\n",
+       " ('regoddamn', 1): 2,\n",
+       " ('dicul', 1): 3,\n",
+       " ('mean', 1): 1257,\n",
+       " ('experiment', 1): 28,\n",
+       " ('expos', 1): 104,\n",
+       " ('basement', 1): 64,\n",
+       " ('research', 1): 152,\n",
+       " ('begin', 1): 1140,\n",
+       " ('cmon', 1): 20,\n",
+       " ('director', 1): 2013,\n",
+       " ('couldv', 1): 65,\n",
+       " ('spent', 1): 317,\n",
+       " ('sewn', 1): 12,\n",
+       " ('shut', 1): 102,\n",
+       " ('oooh', 1): 9,\n",
+       " ('nooo', 1): 5,\n",
+       " ('speak', 1): 431,\n",
+       " ('suck', 1): 511,\n",
+       " ('2s', 1): 6,\n",
+       " ('water', 1): 272,\n",
+       " ('worthless', 1): 60,\n",
+       " ('where', 1): 40,\n",
+       " ('gritti', 1): 45,\n",
+       " ('thrill', 1): 137,\n",
+       " ('berserk', 1): 11,\n",
+       " ('reenact', 1): 19,\n",
+       " ('last', 1): 1195,\n",
+       " ('memori', 1): 171,\n",
+       " ('supermarket', 1): 9,\n",
+       " ('rampag', 1): 38,\n",
+       " ('desert', 1): 210,\n",
+       " ('dawn', 1): 73,\n",
+       " ('millennium', 1): 20,\n",
+       " ('attract', 1): 315,\n",
+       " ('audienc', 1): 1071,\n",
+       " ('taken', 1): 334,\n",
+       " ('dystopiaorwellian', 1): 2,\n",
+       " ('futur', 1): 254,\n",
+       " ('cesspit', 1): 2,\n",
+       " ('corni', 1): 108,\n",
+       " ('correct', 1): 110,\n",
+       " ('adject', 1): 10,\n",
+       " ('describ', 1): 289,\n",
+       " ('sequel', 1): 456,\n",
+       " ('impact', 1): 93,\n",
+       " ('sieg', 1): 19,\n",
+       " ('robocop', 1): 20,\n",
+       " ('3', 1): 689,\n",
+       " ('hell', 1): 563,\n",
+       " ('cheapassno', 1): 2,\n",
+       " ('class', 1): 326,\n",
+       " ('termin', 1): 53,\n",
+       " ('knockoff', 1): 19,\n",
+       " ('1999', 1): 45,\n",
+       " ('entertain', 1): 918,\n",
+       " ('small', 1): 577,\n",
+       " ('grover', 1): 5,\n",
+       " ('bend', 1): 15,\n",
+       " ('due', 1): 387,\n",
+       " ('encount', 1): 127,\n",
+       " ('krite', 1): 2,\n",
+       " ('brad', 1): 79,\n",
+       " ('brown', 1): 113,\n",
+       " ('return', 1): 401,\n",
+       " ('spend', 1): 428,\n",
+       " ('grandmoth', 1): 29,\n",
+       " ('easter', 1): 10,\n",
+       " ('meanwhil', 1): 110,\n",
+       " ('egg', 1): 36,\n",
+       " ('hatch', 1): 10,\n",
+       " ('caus', 1): 389,\n",
+       " ('troubl', 1): 277,\n",
+       " ('townsfolk', 1): 9,\n",
+       " ('bounti', 1): 27,\n",
+       " ('hunter', 1): 136,\n",
+       " ('finish', 1): 340,\n",
+       " ('creatur', 1): 331,\n",
+       " ('must', 1): 1165,\n",
+       " ('bloodthirsti', 1): 23,\n",
+       " ('furbal', 1): 2,\n",
+       " ('wipe', 1): 55,\n",
+       " ('townbr', 1): 5,\n",
+       " ('critter', 1): 59,\n",
+       " ('minor', 1): 150,\n",
+       " ('attempt', 1): 1081,\n",
+       " ('ripoff', 1): 139,\n",
+       " ('familyhorror', 1): 1,\n",
+       " ('flick', 1): 785,\n",
+       " ('gremlin', 1): 21,\n",
+       " ('becam', 1): 219,\n",
+       " ('cult', 1): 184,\n",
+       " ('favourit', 1): 64,\n",
+       " ('video', 1): 760,\n",
+       " ('shelv', 1): 16,\n",
+       " ('success', 1): 487,\n",
+       " ('warrant', 1): 47,\n",
+       " ('horror', 1): 1580,\n",
+       " ('focu', 1): 184,\n",
+       " ('comedi', 1): 1305,\n",
+       " ('instead', 1): 1109,\n",
+       " ('unfortun', 1): 814,\n",
+       " ('clumsi', 1): 55,\n",
+       " ('childish', 1): 40,\n",
+       " ('par', 1): 68,\n",
+       " ('rest', 1): 803,\n",
+       " ('suffer', 1): 335,\n",
+       " ('weak', 1): 403,\n",
+       " ('visual', 1): 334,\n",
+       " ('fairli', 1): 217,\n",
+       " ('donebr', 1): 17,\n",
+       " ('grade', 1): 202,\n",
+       " ('review', 1): 967,\n",
+       " ('k', 1): 11,\n",
+       " ('geist', 1): 3,\n",
+       " ('commit', 1): 191,\n",
+       " ('heather', 1): 29,\n",
+       " ('graham', 1): 59,\n",
+       " ('along', 1): 676,\n",
+       " ('casey', 1): 36,\n",
+       " ('affleck', 1): 61,\n",
+       " ('luke', 1): 43,\n",
+       " ('wilson', 1): 59,\n",
+       " ('jolin', 1): 3,\n",
+       " ('determin', 1): 67,\n",
+       " ('find', 1): 1939,\n",
+       " ('exhusband', 1): 7,\n",
+       " ('process', 1): 126,\n",
+       " ('midlif', 1): 11,\n",
+       " ('crisi', 1): 62,\n",
+       " ('expect', 1): 1283,\n",
+       " ('ultim', 1): 226,\n",
+       " ('unrealist', 1): 187,\n",
+       " ('deliv', 1): 350,\n",
+       " ('perform', 1): 1477,\n",
+       " ('recent', 1): 344,\n",
+       " ('lacklust', 1): 50,\n",
+       " ('improvementbr', 1): 6,\n",
+       " ('bless', 1): 34,\n",
+       " ('found', 1): 985,\n",
+       " ('mislead', 1): 56,\n",
+       " ('appeal', 1): 282,\n",
+       " ('allbr', 1): 100,\n",
+       " ('pro', 1): 51,\n",
+       " ('affleckbr', 1): 5,\n",
+       " ('con', 1): 57,\n",
+       " ('age', 1): 473,\n",
+       " ('rare', 1): 194,\n",
+       " ('nasti', 1): 164,\n",
+       " ('amazon', 1): 14,\n",
+       " ('jungl', 1): 114,\n",
+       " ('tribe', 1): 65,\n",
+       " ('live', 1): 1274,\n",
+       " ('fear', 1): 196,\n",
+       " ('laura', 1): 57,\n",
+       " ('crawford', 1): 28,\n",
+       " ('model', 1): 169,\n",
+       " ('kidnap', 1): 135,\n",
+       " ('thug', 1): 67,\n",
+       " ('south', 1): 170,\n",
+       " ('america', 1): 244,\n",
+       " ('guard', 1): 108,\n",
+       " ('ridicul', 1): 721,\n",
+       " ('nativ', 1): 140,\n",
+       " ('call', 1): 1252,\n",
+       " ('unpleas', 1): 65,\n",
+       " ('happi', 1): 273,\n",
+       " ('maiden', 1): 10,\n",
+       " ('chain', 1): 67,\n",
+       " ('demonstr', 1): 96,\n",
+       " ('eat', 1): 296,\n",
+       " ('flesh', 1): 131,\n",
+       " ('horribl', 1): 1019,\n",
+       " ('manner', 1): 182,\n",
+       " ('peter', 1): 280,\n",
+       " ('weston', 1): 9,\n",
+       " ('ehheh', 1): 10,\n",
+       " ('dude', 1): 140,\n",
+       " ('theyr', 1): 652,\n",
+       " ('bite', 1): 77,\n",
+       " ('human', 1): 679,\n",
+       " ('stuff', 1): 508,\n",
+       " ('rank', 1): 91,\n",
+       " ('amongst', 1): 67,\n",
+       " ('utter', 1): 174,\n",
+       " ('drivel', 1): 82,\n",
+       " ('modicum', 1): 16,\n",
+       " ('brain', 1): 266,\n",
+       " ('sure', 1): 1262,\n",
+       " ('payrol', 1): 4,\n",
+       " ('give', 1): 2205,\n",
+       " ('glow', 1): 53,\n",
+       " ('vote', 1): 177,\n",
+       " ('highli', 1): 193,\n",
+       " ('abomin', 1): 73,\n",
+       " ('sellout', 1): 7,\n",
+       " ('claim', 1): 232,\n",
+       " ('bmovi', 1): 156,\n",
+       " ('remedi', 1): 9,\n",
+       " ('great', 1): 2145,\n",
+       " ('tip', 1): 43,\n",
+       " ('hand', 1): 762,\n",
+       " ('corpor', 1): 54,\n",
+       " ('shillsbr', 1): 2,\n",
+       " ('thatbr', 1): 128,\n",
+       " ('characterist', 1): 33,\n",
+       " ('without', 1): 1289,\n",
+       " ('enjoy', 1): 1184,\n",
+       " ('laugh', 1): 1300,\n",
+       " ('japanes', 1): 213,\n",
+       " ('60', 1): 152,\n",
+       " ('monster', 1): 640,\n",
+       " ('rubber', 1): 69,\n",
+       " ('suit', 1): 216,\n",
+       " ('string', 1): 104,\n",
+       " ('hold', 1): 373,\n",
+       " ('space', 1): 367,\n",
+       " ('ship', 1): 261,\n",
+       " ('dangl', 1): 16,\n",
+       " ('flame', 1): 44,\n",
+       " ('curv', 1): 10,\n",
+       " ('upward', 1): 7,\n",
+       " ('back', 1): 1806,\n",
+       " ('express', 1): 217,\n",
+       " ('aka', 1): 79,\n",
+       " ('dead', 1): 876,\n",
+       " ('rail', 1): 12,\n",
+       " ('incred', 1): 417,\n",
+       " ('absurdbr', 1): 11,\n",
+       " ('today', 1): 276,\n",
+       " ('standard', 1): 332,\n",
+       " ('henc', 1): 76,\n",
+       " ('comed', 1): 102,\n",
+       " ('sophomor', 1): 20,\n",
+       " ('bit', 1): 1168,\n",
+       " ('wont', 1): 486,\n",
+       " ('logic', 1): 194,\n",
+       " ('wouldnt', 1): 523,\n",
+       " ('fair', 1): 225,\n",
+       " ('pitiabl', 1): 8,\n",
+       " ('plu', 1): 276,\n",
+       " ('lou', 1): 70,\n",
+       " ('diamond', 1): 56,\n",
+       " ('phillip', 1): 61,\n",
+       " ('desper', 1): 226,\n",
+       " ('touch', 1): 274,\n",
+       " ('onebr', 1): 97,\n",
+       " ('scifi', 1): 278,\n",
+       " ('channel', 1): 244,\n",
+       " ('rapidli', 1): 34,\n",
+       " ('cheap', 1): 560,\n",
+       " ('produc', 1): 799,\n",
+       " ('iota', 1): 16,\n",
+       " ('concept', 1): 282,\n",
+       " ('intellig', 1): 287,\n",
+       " ('wonder', 1): 1005,\n",
+       " ('botherbr', 1): 11,\n",
+       " ('bother', 1): 391,\n",
+       " ('tripe', 1): 65,\n",
+       " ('wasnt', 1): 1105,\n",
+       " ('oscarwin', 1): 8,\n",
+       " ('lead', 1): 1031,\n",
+       " ('heard', 1): 436,\n",
+       " ('anybodi', 1): 146,\n",
+       " ('theater', 1): 392,\n",
+       " ('rene', 1): 17,\n",
+       " ('zellweg', 1): 11,\n",
+       " ('pancak', 1): 3,\n",
+       " ('makeup', 1): 224,\n",
+       " ('unbecom', 1): 1,\n",
+       " ('everybodi', 1): 173,\n",
+       " ('imit', 1): 108,\n",
+       " ('slapstick', 1): 78,\n",
+       " ('pull', 1): 336,\n",
+       " ('perhap', 1): 642,\n",
+       " ('mustv', 1): 18,\n",
+       " ('develop', 1): 595,\n",
+       " ('lost', 1): 578,\n",
+       " ('translat', 1): 116,\n",
+       " ('roar', 1): 31,\n",
+       " ('20', 1): 309,\n",
+       " ('tad', 1): 40,\n",
+       " ('artifici', 1): 44,\n",
+       " ('randi', 1): 57,\n",
+       " ('newman', 1): 21,\n",
+       " ('annoy', 1): 649,\n",
+       " ('sepia', 1): 1,\n",
+       " ('tone', 1): 221,\n",
+       " ('30', 1): 305,\n",
+       " ('fan', 1): 1209,\n",
+       " ('three', 1): 871,\n",
+       " ('tv', 1): 1049,\n",
+       " ('seri', 1): 885,\n",
+       " ('learn', 1): 442,\n",
+       " ('log', 1): 15,\n",
+       " ('onto', 1): 137,\n",
+       " ('screen', 1): 972,\n",
+       " ('honest', 1): 163,\n",
+       " ('doubt', 1): 318,\n",
+       " ('whether', 1): 329,\n",
+       " ('writer', 1): 649,\n",
+       " ('abl', 1): 449,\n",
+       " ('sustain', 1): 38,\n",
+       " ('high', 1): 737,\n",
+       " ('level', 1): 473,\n",
+       " ('wit', 1): 229,\n",
+       " ('infus', 1): 9,\n",
+       " ('seriesbr', 1): 18,\n",
+       " ('unfound', 1): 3,\n",
+       " ('huge', 1): 401,\n",
+       " ('disappoint', 1): 941,\n",
+       " ('struggl', 1): 229,\n",
+       " ('comment', 1): 626,\n",
+       " ('site', 1): 104,\n",
+       " ('obvious', 1): 584,\n",
+       " ('entitl', 1): 23,\n",
+       " ('opinion', 1): 340,\n",
+       " ('ambr', 1): 2,\n",
+       " ('convict', 1): 77,\n",
+       " ('best', 1): 1666,\n",
+       " ('still', 1): 1847,\n",
+       " ('watchabl', 1): 174,\n",
+       " ('disgust', 1): 216,\n",
+       " ('empti', 1): 137,\n",
+       " ('walk', 1): 635,\n",
+       " ('cinema', 1): 430,\n",
+       " ('felt', 1): 640,\n",
+       " ('uninspir', 1): 133,\n",
+       " ('unmotiv', 1): 14,\n",
+       " ('discuss', 1): 155,\n",
+       " ('othersbr', 1): 16,\n",
+       " ('write', 1): 959,\n",
+       " ('warn', 1): 368,\n",
+       " ('leagu', 1): 51,\n",
+       " ('wide', 1): 93,\n",
+       " ('rang', 1): 109,\n",
+       " ('convinc', 1): 409,\n",
+       " ('mess', 1): 488,\n",
+       " ('tarnish', 1): 7,\n",
+       " ('otherwis', 1): 336,\n",
+       " ('spotless', 1): 4,\n",
+       " ('geniu', 1): 103,\n",
+       " ('exemplifi', 1): 6,\n",
+       " ('fish', 1): 147,\n",
+       " ('coupl', 1): 801,\n",
+       " ('stay', 1): 488,\n",
+       " ('marri', 1): 239,\n",
+       " ('children', 1): 556,\n",
+       " ('broken', 1): 117,\n",
+       " ('what', 1): 412,\n",
+       " ('swoon', 1): 14,\n",
+       " ('man', 1): 1858,\n",
+       " ('instantli', 1): 52,\n",
+       " ('real', 1): 1635,\n",
+       " ('bitch', 1): 38,\n",
+       " ('true', 1): 618,\n",
+       " ('selv', 1): 4,\n",
+       " ('left', 1): 950,\n",
+       " ('decid', 1): 807,\n",
+       " ('pick', 1): 440,\n",
+       " ('happili', 1): 43,\n",
+       " ('afterbr', 1): 2,\n",
+       " ('exactli', 1): 391,\n",
+       " ('fall', 1): 782,\n",
+       " ('your', 1): 898,\n",
+       " ('forc', 1): 629,\n",
+       " ('unbeliev', 1): 295,\n",
+       " ('date', 1): 286,\n",
+       " ('onlin', 1): 25,\n",
+       " ('sever', 1): 635,\n",
+       " ('other', 1): 530,\n",
+       " ('none', 1): 462,\n",
+       " ('question', 1): 514,\n",
+       " ('rais', 1): 174,\n",
+       " ('number', 1): 440,\n",
+       " ('press', 1): 77,\n",
+       " ('firstli', 1): 43,\n",
+       " ('jennif', 1): 83,\n",
+       " ('tilli', 1): 9,\n",
+       " ('manag', 1): 574,\n",
+       " ('career', 1): 382,\n",
+       " ('base', 1): 559,\n",
+       " ('squeaki', 1): 10,\n",
+       " ('limit', 1): 194,\n",
+       " ('hammi', 1): 31,\n",
+       " ('facial', 1): 61,\n",
+       " ('employ', 1): 82,\n",
+       " ('secondli', 1): 60,\n",
+       " ('earth', 1): 365,\n",
+       " ('respons', 1): 214,\n",
+       " ('offens', 1): 148,\n",
+       " ('deepli', 1): 57,\n",
+       " ('repuls', 1): 50,\n",
+       " ('thirdli', 1): 8,\n",
+       " ('given', 1): 757,\n",
+       " ('pervert', 1): 42,\n",
+       " ('dreck', 1): 47,\n",
+       " ('shouldnt', 1): 161,\n",
+       " ('system', 1): 108,\n",
+       " ('studio', 1): 223,\n",
+       " ('distributor', 1): 20,\n",
+       " ('somewher', 1): 217,\n",
+       " ('sane', 1): 21,\n",
+       " ('prevent', 1): 112,\n",
+       " ('complet', 1): 1476,\n",
+       " ('releas', 1): 632,\n",
+       " ('search', 1): 174,\n",
+       " ('profoundli', 1): 11,\n",
+       " ('bill', 1): 264,\n",
+       " ('inasmuch', 1): 6,\n",
+       " ('belong', 1): 96,\n",
+       " ('legitim', 1): 27,\n",
+       " ('wallow', 1): 16,\n",
+       " ('sickest', 1): 7,\n",
+       " ('mad', 1): 227,\n",
+       " ('violenc', 1): 440,\n",
+       " ('abus', 1): 142,\n",
+       " ('im', 1): 2223,\n",
+       " ('advoc', 1): 16,\n",
+       " ('censorship', 1): 10,\n",
+       " ('believ', 1): 1568,\n",
+       " ('conceiv', 1): 80,\n",
+       " ('draw', 1): 149,\n",
+       " ('anyth', 1): 1470,\n",
+       " ('posit', 1): 376,\n",
+       " ('sin', 1): 67,\n",
+       " ('dummi', 1): 31,\n",
+       " ('ahhh', 1): 4,\n",
+       " ('bigfoot', 1): 27,\n",
+       " ('lean', 1): 54,\n",
+       " ('that', 1): 1776,\n",
+       " ('melt', 1): 25,\n",
+       " ('line', 1): 1384,\n",
+       " ('smell', 1): 31,\n",
+       " ('decain', 1): 1,\n",
+       " ('them', 1): 2,\n",
+       " ('humany', 1): 1,\n",
+       " ('blah', 1): 92,\n",
+       " ('babi', 1): 263,\n",
+       " ('crywith', 1): 3,\n",
+       " ('laughter', 1): 79,\n",
+       " ...}"
+      ]
+     },
+     "execution_count": 23,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "## Run this cell to get an idea about the corpus of words and their occurrence along with labels. \n",
+    "## In this, we are computing the frequency of occurrence of word given that a review is 'positive'.\n",
+    "## Similarly, we also compute the frequence of occurence of word given that a review is 'negative'.\n",
+    "freqs"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "759c24bc"
+   },
+   "source": [
+    "## Q4. Training the Naive Bayes Model: (20 points)\n",
+    "\n",
+    "Now we are in the training phase of the Naive Bayes algorithm. In this cell, take a look at the ways to calculate the log likelihood and log prior values as these are important for testing in the next few cells. \n",
+    "\n",
+    "Also calculate the frequency of occurrence of words where the output is negative. In the same way, calculate the word frequency count using the above functions in order to compute the log likelihood.\n",
+    "\n",
+    "Return the logprior and loglikelihood output by the model from this function. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 24,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import math# for calculate"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 25,
+   "metadata": {
+    "id": "a7f280e3"
+   },
+   "outputs": [],
+   "source": [
+    "def train_naive_bayes(freqs, train_x, train_y):\n",
+    "    '''\n",
+    "    Input:\n",
+    "        freqs: dictionary from (word, label) to how often the word appears\n",
+    "        train_x: a list of reviews\n",
+    "        train_y: a list of labels correponding to the reviews (0,1)\n",
+    "    Output:\n",
+    "        logprior: the log prior. (equation 3 above)\n",
+    "        loglikelihood: the log likelihood of you Naive bayes equation. (equation 6 above)\n",
+    "    '''\n",
+    "    loglikelihood = {}\n",
+    "    logprior = 0\n",
+    "\n",
+    "\n",
+    "    # calculate V, the number of unique words in the vocabulary\n",
+    "#     vocab = list(freqs.keys())\n",
+    "#     V = len(vocab)\n",
+    "    x=list(freqs.keys())#transfer keys into list\n",
+    "    zanshi = []#store unique words from freq's keys\n",
+    "    for i in range(len(x)):#x is list freq's keys\n",
+    "        if x[i][0] not in zanshi:\n",
+    "            zanshi.append(x[i][0])# add words if it doesn't appear in list zanshi\n",
+    "    vocab = zanshi\n",
+    "    V = len(vocab)\n",
+    "\n",
+    "    # calculate num_pos and num_neg - the total number of positive and negative words for all documents\n",
+    "    num_pos = num_neg = 0\n",
+    "    for pair in freqs.keys():\n",
+    "        # if the label is positive (greater than zero)\n",
+    "        if pair[1] == 0:\n",
+    "            # Increment the number of positive words by the count for this (word, label) pair\n",
+    "            num_pos += freqs[pair]\n",
+    "\n",
+    "        # else, the label is negative\n",
+    "        else:\n",
+    "\n",
+    "            # increment the number of negative words by the count for this (word,label) pair\n",
+    "            num_neg += freqs[pair]\n",
+    "\n",
+    "    # Calculate num_doc, the number of documents\n",
+    "    num_doc = len(X_train)\n",
+    "\n",
+    "    # Calculate D_pos, the number of positive documents \n",
+    "    pos_num_docs = 0#initial value\n",
+    "    for u in train_y:\n",
+    "        if u == 0:#0 represent positive\n",
+    "            pos_num_docs += 1\n",
+    "            \n",
+    "\n",
+    "    # Calculate D_neg, the number of negative documents \n",
+    "    neg_num_docs = 0\n",
+    "    for u in train_y:\n",
+    "        if u == 1:#1 represent negative\n",
+    "            neg_num_docs += 1\n",
+    "\n",
+    "    # Calculate logprior\n",
+    "    logprior = math.log(neg_num_docs)-math.log(pos_num_docs)#equation 3\n",
+    "\n",
+    "\n",
+    "    # For each word in the vocabulary...\n",
+    "    for word in vocab:\n",
+    "        # get the positive and negative frequency of the word\n",
+    "        if (word,0)in freqs.keys():#if this word,0 in freq, freq_pos will get value from freqs. If not, freq_pos get 0\n",
+    "            freq_pos = freqs[word,0]\n",
+    "        else:\n",
+    "            freq_pos = 0\n",
+    "        if (word,1)in freqs.keys():#if this word,1 in freq, freq_pos will get value from freqs. If not, freq_pos get 0\n",
+    "            freq_neg = freqs[word,1]\n",
+    "        else:\n",
+    "            freq_neg = 0\n",
+    "\n",
+    "\n",
+    "        # calculate the probability that each word is positive, and negative\n",
+    "        p_w_pos = (freq_pos+1)/(pos_num_docs+V)\n",
+    "        p_w_neg = (freq_neg+1)/(V+neg_num_docs)\n",
+    "\n",
+    "        # calculate the log likelihood of the word\n",
+    "        loglikelihood[word] = math.log((p_w_neg/p_w_pos))#equation 6\n",
+    "\n",
+    "\n",
+    "\n",
+    "    return logprior, loglikelihood"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 26,
+   "metadata": {
+    "id": "1561d892"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "0.0\n",
+      "75711\n"
+     ]
+    }
+   ],
+   "source": [
+    "# You do not have to input any code in this cell, but it is relevant to grading, so please do not change anything\n",
+    "logprior, loglikelihood = train_naive_bayes(freqs, X_train, y_train)\n",
+    "print(logprior)\n",
+    "print(len(loglikelihood))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "19d9c882"
+   },
+   "source": [
+    "### Expected Output \n",
+    "\n",
+    "0.0 <br>\n",
+    "91425"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "78b51303"
+   },
+   "source": [
+    "## Q5. Implementing Naive Bayes Predict Function: (10 points)\n",
+    "\n",
+    "It is now time to make our prediction as to whether a given review is negative or positive respectively. \n",
+    "\n",
+    "After adding the log likelihood values, ensure that the output is 1 (negative) if the sum of the log likelihood value is greater than 0 and 0 (positive) if the sum of the log likelihood is less than or equal to 0. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 27,
+   "metadata": {
+    "id": "b692c2f9"
+   },
+   "outputs": [],
+   "source": [
+    "# TASK 4 CELL\n",
+    "\n",
+    "def naive_bayes_predict(review, logprior, loglikelihood):\n",
+    "    '''\n",
+    "    Params:\n",
+    "        review: a string\n",
+    "        logprior: a number\n",
+    "        loglikelihood: a dictionary of words mapping to numbers\n",
+    "    Return:\n",
+    "        total_prob: the sum of all the loglikelihoods of each word in the review (if found in the dictionary) + logprior (a number)\n",
+    "\n",
+    "    '''\n",
+    "    \n",
+    "      # process the review to get a list of words\n",
+    "    word_l = clean_review(review).split()# clean review, then split it\n",
+    "\n",
+    "    # initialize probability to zero\n",
+    "    total_prob = 0\n",
+    "\n",
+    "    # add the logprior\n",
+    "    total_prob = logprior# this parameter from train_naive_bayes\n",
+    "\n",
+    "    for word in word_l:\n",
+    "\n",
+    "        # check if the word exists in the loglikelihood dictionary\n",
+    "        if word in loglikelihood.keys():\n",
+    "            # add the log likelihood of that word to the probability\n",
+    "            total_prob = total_prob + loglikelihood[word]\n",
+    "    if total_prob >0:# the output is 1 (negative) if the sum of the log likelihood value is greater than 0 and 0 (positive) if the sum of the log likelihood is less than or equal to 0.\n",
+    "        re = 1\n",
+    "    else:\n",
+    "        re=0\n",
+    "\n",
+    "\n",
+    "    return re"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 28,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "4b170333",
+    "outputId": "0cf6bc90-90e8-4dee-bf95-7eaf39dce147"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "The expected output is 1\n"
+     ]
+    }
+   ],
+   "source": [
+    "# You do not have to input any code in this cell, but it is relevant to grading, so please do not change anything\n",
+    "\n",
+    "# Experiment with your own review.\n",
+    "my_review = \"I thought this series was going to be another fun, action series with some dynamic plots and great performances. I was wrong. While I like Jamie Denton, this show is hardly worth watching at all, unless you enjoy watching some people brutalized and the actions of the agents supposedly warranted under the theme of national security. The show is great propaganda for the current government, and spews out jingoism as though we talk that way every day. After a couple of episodes, it was boring the hell out of me, and I started watching reruns of House Invaders on BBCAmerica instead. Rather watch CSI and Without a Trace, without a doubt.\"\n",
+    "p = naive_bayes_predict(my_review, logprior, loglikelihood)\n",
+    "print('The expected output is', p)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "6242708f"
+   },
+   "source": [
+    "### Expected Output :\n",
+    "The expected output is 1"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "7c4eeb71"
+   },
+   "source": [
+    "## Q6. Implementing Naive Bayes Test function: (10 points)\n",
+    "\n",
+    "In this function, implement the previous functions such as naive_bayes_predict to get the predictions for the test set. \n",
+    "\n",
+    "In addition to this, the function should return the total number of reviews that it correctly classified as 'positive' or 'negative'. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 126,
+   "metadata": {
+    "id": "66a511e7"
+   },
+   "outputs": [],
+   "source": [
+    "# UNQ_C6 (UNIQUE CELL IDENTIFIER, DO NOT EDIT)\n",
+    "def test_naive_bayes(test_x, test_y, logprior, loglikelihood):\n",
+    "    \"\"\"\n",
+    "    Input:\n",
+    "        test_x: A list of reviews\n",
+    "        test_y: the corresponding labels for the list of reviews\n",
+    "        logprior: the logprior\n",
+    "        loglikelihood: a dictionary with the loglikelihoods for each word\n",
+    "    Output:\n",
+    "        accuracy: (# of reviews classified correctly)/(total # of reviews)\n",
+    "    \"\"\"\n",
+    "    accuracy = 0  \n",
+    "\n",
+    "    \n",
+    "    y_hats = []\n",
+    "    for review in test_x:\n",
+    "        # if the prediction is > 0\n",
+    "        if naive_bayes_predict(review)>0:\n",
+    "            # the predicted class is 1\n",
+    "            y_hat_i = 1\n",
+    "        else:\n",
+    "            # otherwise the predicted class is 0\n",
+    "            y_hat_i = 0\n",
+    "\n",
+    "        # append the predicted class to the list y_hats\n",
+    "        y_hats.append[y_hat_i]\n",
+    "\n",
+    "    # error is the average of the absolute values of the differences between y_hats and test_y\n",
+    "    error = 0# calculate error which means fp + fn\n",
+    "    for ii in range(len(test_y)):\n",
+    "        if y_hats[ii] != test_y[ii]:\n",
+    "            error += 1\n",
+    "            \n",
+    "\n",
+    "    accuracy = (len(y_hats)-error)/len(test_y)#(tp+tn)/(tp+fp+tn+fn)\n",
+    "\n",
+    "\n",
+    "    return accuracy"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 29,
+   "metadata": {
+    "id": "8a9c5d9d"
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "If you like original gut wrenching laughter you will like this movie. If you are young or old then y -> 0.00\n",
+      "What a waste of talent. A very poor, semi-coherent, script cripples this film. Rather unimaginative  -> 1.00\n",
+      "I have seen this film at least 100 times and I am still excited by it, the acting is perfect and the -> 0.00\n",
+      "Cheap, amateurish, unimaginative, exploitative... but don't think it'll have redeeming amusement val -> 1.00\n"
+     ]
+    }
+   ],
+   "source": [
+    "# For grading purpose only\n",
+    "# You do not have to input any code in this cell, but it is relevant to grading, so please do not change anything\n",
+    "\n",
+    "# Run this cell to test your function\n",
+    "\n",
+    "for review in [\"If you like original gut wrenching laughter you will like this movie. If you are young or old then you will love this movie, hell even my mom liked it.<br /><br />Great Camp!!!\",\n",
+    "                \"What a waste of talent. A very poor, semi-coherent, script cripples this film. Rather unimaginative direction, too. Some VERY faint echoes of Fargo here, but it just doesn't come off.\",\n",
+    "                \"I have seen this film at least 100 times and I am still excited by it, the acting is perfect and the romance between Joe and Jean keeps me on the edge of my seat, plus I still think Bryan Brown is the tops. Brilliant Film.\",\n",
+    "                \"Cheap, amateurish, unimaginative, exploitative... but don't think it'll have redeeming amusement value. About as unentertaining, uninstructive and just plain dull as a film can be.\"]:\n",
+    "    p = naive_bayes_predict(review, logprior, loglikelihood)\n",
+    "    print(f'{review[:100]} -> {p:.2f}')\n",
+    "    "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "43e2ef98"
+   },
+   "source": [
+    "### Expected Output :\n",
+    "\n",
+    "If you like original gut wrenching laughter you will like this movie. If you are young or old then y -> 0.00 <br>\n",
+    "What a waste of talent. A very poor, semi-coherent, script cripples this film. Rather unimaginative  -> 1.00<br>\n",
+    "I have seen this film at least 100 times and I am still excited by it, the acting is perfect and the -> 0.00 <br>\n",
+    "Cheap, amateurish, unimaginative, exploitative... but don't think it'll have redeeming amusement val -> 1.00\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 30,
+   "metadata": {
+    "colab": {
+     "base_uri": "https://localhost:8080/"
+    },
+    "id": "216fa97a",
+    "outputId": "9d1f21c7-b324-43c2-e841-269c0306cbb4"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "1"
+      ]
+     },
+     "execution_count": 30,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Feel free to check the sentiment of your own review below\n",
+    "my_review = 'The moview was very boring, I wanted to leave in the middle'\n",
+    "naive_bayes_predict(my_review, logprior, loglikelihood)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "8a45e4f0"
+   },
+   "source": [
+    "### Expected Output :\n",
+    "1"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "mAIkM4aCC1H7"
+   },
+   "source": [
+    "# Q7. Evaluate the accuracy (10 Points)\n",
+    "1. Split your data into training and test sets using random selection. Set the seed as parameter of the function so that user can select a different training and test set by changin seed.\n",
+    "\n",
+    "2. Calculate model paramters with training set.\n",
+    "\n",
+    "3. Print confusion matrix for training and test set.\n",
+    "\n",
+    "4. Examine False Positive and False Negative cases and provide reasoning why they get misclassified."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 129,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.model_selection import train_test_split#use sklearn's train_test_split to randomly select train and test data\n",
+    "\n",
+    "train, test = train_test_split(df, test_size=0.2, random_state=42)#80% of this data become train data and 20% of this data become test data,set random seed 42\n",
+    "reviews_train = train['review']#split review \n",
+    "senti_train = train['sentiment']#split sentiment\n",
+    "reviews_test = test['review']#split review\n",
+    "senti_test = test['sentiment']#split sentiment"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 130,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "## With the use of mapping function, we replace\n",
+    "## the label in the form of string to an integer. \n",
+    "output_map = {'positive': 0, 'negative': 1}\n",
+    "senti_train = senti_train.map(output_map)\n",
+    "senti_test = senti_test.map(output_map)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 131,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "freqs = review_counter({}, reviews_train, senti_train)# Build the freqs dictionary for later uses"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 132,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "logprior, loglikelihood = train_naive_bayes(freqs, reviews_train , senti_train)#return parameters which are logprior, loglikelihood"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 133,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "train_predict_result = []#store predict result of train data\n",
+    "for r in reviews_train:\n",
+    "    p = naive_bayes_predict(r, logprior, loglikelihood)#return predict single result of train data\n",
+    "    train_predict_result.append(p)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 134,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([[9444,  559],\n",
+       "       [1117, 8639]], dtype=int64)"
+      ]
+     },
+     "execution_count": 134,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "from sklearn.metrics import confusion_matrix\n",
+    "confusion_matrix(senti_train, train_predict_result)#use skelearn to do confusion matrix"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 141,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.9151778936180981"
+      ]
+     },
+     "execution_count": 141,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "(9444+8639)/(9444+8639+1117+559)#calculate accuracy of train data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 136,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "test_predict_result = []#store predict result of test data\n",
+    "for rr in reviews_test:\n",
+    "    p = naive_bayes_predict(rr, logprior, loglikelihood)#return predict single result of test data\n",
+    "    test_predict_result.append(p)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 137,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([[2255,  216],\n",
+       "       [ 509, 1960]], dtype=int64)"
+      ]
+     },
+     "execution_count": 137,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "confusion_matrix(list(senti_test), test_predict_result)#use skelearn to do confusion matrix"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 142,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "0.8532388663967612"
+      ]
+     },
+     "execution_count": 142,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "(2255+1960)/(2255+1960+509+216)#calculate accuracy of test data"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 4.From confusion matrix, we know test confusion matrix has 509 FN and 216 FP. And Train confusion matrix has 1117 FN and 559 FP.  There are some words. When they come to movie reviews, there are times when certain words are used in a different sentiment than their global sentiment. For examplea word like 'Fantastic' has a positive global sentiment, however. when sarcasm is involved the sentiment of the word changes. Since, we are using Bag of Words method for our first assignment, it is a comparatively naive approach. This could explain the presence of FP and FN in our output."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "XbzttYVnBo7W"
+   },
+   "source": [
+    "# Q8. Modularize your calssifier (10 points)\n",
+    "1. Convert your code into a python module text_classifier.py\n",
+    "\n",
+    "2. The user should be able to launch the application on command prompt using python test_classifier.py command. The module will automatically load the model paramters from a local file of your choice and be ready to take the input from user on command prompt. The program will preprocess user input, tokenize and predict the class.\n",
+    "\n",
+    "3. Your module will take the input from user and output sentiment class in an indefinite loop. The output should printout the probabilities for each input token along with the final classification decision. Program will quit if user enters X.\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 139,
+   "metadata": {
+    "id": "lKAQrnnbBnKe"
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "1622357"
+      ]
+     },
+     "execution_count": 139,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "loglikelihood['logprior'] = logprior# add the vaule of logprior into loglikelihood for store the value of logprior \n",
+    "import csv\n",
+    "f = open('parameter2.csv', mode='a',encoding='utf-8',newline='')\n",
+    "csv_writer= csv.DictWriter(f,fieldnames=list(loglikelihood.keys()))# add head of cvs\n",
+    "csv_writer.writeheader()# add head of cvs\n",
+    "csv_writer.writerow(loglikelihood)#add value"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 140,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#upload parameter\n",
+    "para = pd.read_csv(\"parameter2.csv\", sep = ',', encoding = 'latin-1', usecols = lambda col: col not in [\"Unnamed: 2\", \"Unnamed: 3\", \"Unnamed: 4\"])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {
+    "id": "82e6e4d1"
+   },
+   "source": [
+    "# Q9. Theory Questions: (10 points)\n",
+    "\n",
+    "1. Why is Laplace Smoothing or Additive Smoothing required while executing Naive Bayes operations, especially for text classification? Show how not having additive smoothing leads to bad outcomes by using an example of training and the test set. (10 points)\n",
+    "\n",
+    "\n",
+    "2. Why are logarithmic values computed instead of only probability values in the Naive Bayes algorithm? (5 points)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#1.naive Bayes naively multiplies all the feature likelihoods together, zero probabilities in the likelihood term for any class will cause the probability of theclass to be zero, no matter the other evidence!\n",
+    "for example: Training:\n",
+    "   - just plain boring -\n",
+    "   - entirely predictable and lacks energy -\n",
+    "   - no surprises and very few laughs -\n",
+    "   + no very powerful +\n",
+    "   + the most fun film of the summer +\n",
+    "\n",
+    "\n",
+    "P(−) = 3/5\n",
+    "P(+) = 2/5\n",
+    "if our test is \"predictable with no fun\"\n",
+    "P(“predictable”|−) = 1/14+20\n",
+    "P(“predictable”|+) = 0/9+20\n",
+    "P(“no”|−) = 1/14+20\n",
+    "P(“no”|+) = 1/9+20\n",
+    "P(“fun”|−) = 1/14+20\n",
+    "P(“fun”|+) = 1/9+20\n",
+    "So P(−)P(S|−) = 0, P(+)P(S|+)=0, there are + doesn't have 'predictable' and - doesn't have 'fun', we conclude that \"predictable with no fun\" probability is 0 in + and -. This is a bad outcome"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "#2(a) computers can be rather limited when representing very small numbers and (b) logs have the wonderful ability to turn multiplication into addition, and computers are much faster at addition."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "colab": {
+   "collapsed_sections": [],
+   "name": "CS6120_NLP_Assignment_1_Notebook.ipynb",
+   "provenance": [],
+   "toc_visible": true
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
