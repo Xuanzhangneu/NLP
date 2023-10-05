@@ -31,7 +31,7 @@ warnings.filterwarnings("ignore")
 
 
 
-
+import  pandas as pd
 # TASK CELL
 nltk.download('wordnet')
 from nltk.stem import PorterStemmer
